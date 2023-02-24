@@ -35,8 +35,14 @@ func (s *Simulation) Step(velocity pixel.Vec) {
 }
 
 func (s *Simulation) GetFitness() float64 {
-	f := 0.3 * DropOff01(s.RbtPos.Sub(s.TarPos).Len(), 60)
-	f += 0.7 * DropOff01(pixel.V(400, 400).Sub(s.TarPos).Len(), 60)
+	ball2C := pixel.V(400, 400).Sub(s.TarPos).Len()
+	f := 0.0
+	if ball2C < 15 {
+		f = 0.3 * s.RbtPos.Sub(s.TarPos).Len() / 800
+	} else {
+		f = 0.3 * DropOff01(s.RbtPos.Sub(s.TarPos).Len(), 60)
+	}
+	f += 0.7 * DropOff01(ball2C, 60)
 	return f
 	//return s.Fitness / float64(s.Steps)
 }

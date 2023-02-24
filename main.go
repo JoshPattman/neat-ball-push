@@ -2,111 +2,126 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
-	"github.com/JoshPattman/goevo"
-	"github.com/faiface/pixel"
-	"github.com/faiface/pixel/imdraw"
-	"github.com/faiface/pixel/pixelgl"
-	"golang.org/x/image/colornames"
 	"image"
 	"math"
 	"math/rand"
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/JoshPattman/goevo"
+	"github.com/faiface/pixel"
+	"github.com/faiface/pixel/imdraw"
+	"github.com/faiface/pixel/pixelgl"
+	"golang.org/x/image/colornames"
 )
 
-// ReplayBest when true, causes a window to pop up and run a previously trained network. When false, it trains new networks
-const ReplayBest = true
-const NetName = "net_1"
-const NetNum = "8000"
+var (
+	ReplayBest             bool
+	StartWithPreTrainedNet bool
+	NetName                string
+	NetNum                 string
+)
 
-const EnableRecurrent = true
+const EnableRecurrent = false
 
-var activations = goevo.ActivationInfo{
-	InputActivation:  goevo.LinearActivation,
-	HiddenActivation: goevo.RelnActivation,
-	OutputActivation: goevo.TanhActivation,
+func fitness(g *goevo.Genotype) float64 {
+	p := goevo.NewPhenotype(g)
+	f := 0.0
+	// Repeat the simulation a number of times
+	numReps := 5
+	for rep := 0; rep < numReps; rep++ {
+		// Reset environment and agent
+		p.ClearRecurrentMemory()
+		sim := NewSimulation()
+		sim.RandomiseStartingPositions()
+		// Repeat for a number of frames
+		for i := 0; i < 60*10; i++ {
+			outs := p.Forward(sim.GetInputs())
+			sim.Step(pixel.V(outs[0], outs[1]))
+		}
+		f += sim.GetFitness()
+	}
+	// Average the fitness
+	f = f / float64(numReps)
+	// Add a penalty for count of hidden nodes
+	_, numHid, _ := g.Topology()
+	f -= (0.03 * math.Max(float64(numHid)-4, 0))
+	return f
 }
 
 func main() {
+	flag.BoolVar(&ReplayBest, "r", false, "If specified, will load a network and simulate it with a window")
+	flag.BoolVar(&StartWithPreTrainedNet, "p", false, "If specified, will load a network from dist as starting network instead of creating a new one")
+	flag.StringVar(&NetName, "n", "net", "Specify the name prefixing the stored data abount the networks")
+	flag.StringVar(&NetNum, "t", "500", "Specify the net number to load from disk")
+	flag.Parse()
 	rand.Seed(time.Now().Unix())
 	if ReplayBest {
 		pixelgl.Run(run)
 	} else {
-		// Setup genotypes
+		// Setup initial population
 		vis := goevo.NewGenotypeVisualiser()
-		mut := goevo.GenotypeMutator{
-			MaxNewSynapseValue:      0.2,
-			MaxSynapseMutationValue: 0.4,
-		}
-		crs := goevo.GenotypeCrossover{}
 		count := goevo.NewAtomicCounter()
-		gts := make([]goevo.Genotype, 100)
+		pop := make([]*goevo.Genotype, 100)
 		numIn := len(Simulation{}.GetInputs())
-		orig := goevo.NewGenotypeFast(numIn, 2, count)
-		for g := range gts {
-			gts[g] = orig.Copy()
-			mut.GrowRandomSynapse(gts[g], count)
-			mut.GrowRandomNode(gts[g], count)
+		orig := goevo.NewGenotype(count, numIn, 2, goevo.ActivationLinear, goevo.ActivationTanh)
+		if StartWithPreTrainedNet {
+			orig := goevo.NewGenotypeEmpty()
+			path := "./nets/" + NetName + "_" + NetNum
+			dat, _ := os.ReadFile(path + ".json")
+			json.Unmarshal(dat, orig)
 		}
-		pop := goevo.NewPopulation(gts, activations)
-		// Train
-		for g := 0; g < 200001; g++ {
+		for g := range pop {
+			pop[g] = goevo.NewGenotypeCopy(orig)
+		}
+		// Generational loop
+		for g := 1; g <= 50000; g++ {
+			bestFitness, bestGeno := math.Inf(-1), goevo.NewGenotypeEmpty()
 			for pi := range pop {
-				// set pop[pi].fitness
-				f := 0.0
-				numReps := 5
-				for j := 0; j < numReps; j++ {
-					pop[pi].Phenotype.ResetRecurrent()
-					sim := NewSimulation()
-					sim.RandomiseStartingPositions()
-					for i := 0; i < 60*10; i++ {
-						outs := pop[pi].Phenotype.Calculate(sim.GetInputs())
-						sim.Step(pixel.V(outs[0], outs[1]))
-					}
-					f += sim.GetFitness()
+				f := fitness(pop[pi])
+				if f > bestFitness {
+					bestFitness = f
+					bestGeno = pop[pi]
 				}
-				f = f / float64(numReps)
-				_, numHid, _ := pop[pi].Genotype.GetNumNodes()
-				pop[pi].Fitness = f - (0.04 * math.Max(float64(numHid)-4, 0))
 			}
-			pop.Repopulate(0.25, func(g1, g2 goevo.Genotype) goevo.Genotype {
-				gn := crs.CrossoverSimple(g1, g2)
+			for pi := range pop {
+				pop[pi] = goevo.NewGenotypeCopy(bestGeno)
 				if rand.Float64() < 0.9 {
-					mut.MutateRandomConnection(gn)
+					goevo.MutateRandomSynapse(pop[pi], 0.2)
 				}
-				if rand.Float64() < 0.02 {
-					mut.GrowRandomSynapse(gn, count)
+				if rand.Float64() < 0.1 {
+					goevo.AddRandomSynapse(count, pop[pi], 0.3, false, 5)
 				}
 				if rand.Float64() < 0.02 && EnableRecurrent {
-					mut.GrowRandomRecurrentSynapse(gn, count)
+					goevo.AddRandomSynapse(count, pop[pi], 0.3, true, 5)
 				}
 				if rand.Float64() < 0.01 {
-					mut.GrowRandomNode(gn, count)
+					goevo.AddRandomNeuron(count, pop[pi], goevo.ActivationReLU)
 				}
-				return gn
-			}, activations)
-			if g%500 == 0 && g != 0 {
-				js, _ := json.Marshal(pop[0].Genotype)
+			}
+			if g%100 == 0 {
+				js, _ := json.Marshal(bestGeno)
 				name := "nets/" + NetName + "_" + strconv.Itoa(g)
 				err := os.WriteFile(name+".json", js, 0644)
 				if err != nil {
 					panic(err)
 				}
-				vis.DrawImageToPNGFile(name+".png", pop[0].Genotype)
+				vis.DrawImageToPNGFile(name+".png", bestGeno)
 			}
-			fmt.Println("Generation: ", g, ", Fitness: ", pop[0].Fitness)
+			fmt.Println("Generation: ", g, ", Fitness: ", bestFitness)
 		}
 	}
 }
 
 func run() {
-	geno := &goevo.GenotypeFast{}
+	geno := goevo.NewGenotypeEmpty()
 	path := "./nets/" + NetName + "_" + NetNum
 	dat, _ := os.ReadFile(path + ".json")
 	json.Unmarshal(dat, geno)
-	pheno := goevo.GrowPhenotype(geno, activations)
+	pheno := goevo.NewPhenotype(geno)
 	cfg := pixelgl.WindowConfig{
 		Title:  "Neat",
 		Bounds: pixel.R(0, 0, 800, 800),
@@ -125,7 +140,7 @@ func run() {
 	for !win.Closed() {
 		win.Clear(colornames.Black)
 		sprite.Draw(win, pixel.IM.Scaled(pixel.V(0, 0), 0.4).Moved(pixel.V(625, 150)))
-		outs := pheno.Calculate(sim.GetInputs())
+		outs := pheno.Forward(sim.GetInputs())
 		sim.Step(pixel.V(outs[0], outs[1]))
 		// Centre
 		imd.Clear()
