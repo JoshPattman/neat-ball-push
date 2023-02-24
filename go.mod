@@ -15,4 +15,6 @@ require (
 	github.com/pkg/errors v0.8.1 // indirect
 )
 
+replace github.com/JoshPattman/goevo => ../goevo
+
 go 1.18
