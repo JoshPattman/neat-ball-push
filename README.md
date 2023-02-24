@@ -1,6 +1,16 @@
 # Teaching an agent to push a ball to a target with the NEAT algorithm
 ## How the robot is trained
-The robot uses a NEAT network as its brain. The network can include recurrent (backwards) connections, which allow it to have a primitive type of memory. These are depicted as green and yellow lines in the picture, whereas normal connections are blue and red.
+The robot uses a NEAT network as its brain. The network can include recurrent (backwards) connections, which allow it to have a primitive type of memory. These are depicted as green and yellow lines in the picture, whereas normal connections are blue and red. <br><br>
+This is a video of a complex network:
+
+[complex_video.webm](https://user-images.githubusercontent.com/20802404/221260306-f33bb2da-6c8a-494d-9a3d-e86766fab2ea.webm)
+
+<br><br>
+And this is a video of a more simple network:
+
+[simple_vid.webm](https://user-images.githubusercontent.com/20802404/221260316-50ceb11b-c16c-42c9-ab29-13ffdd4b9e09.webm)
+
+<br>
 
 Each generation, I simulate each robot on 5 differnt scenarios, where each scenario the robot and target start at a random position. The robot will always start the same distance from the target and the target will be the same distance from the centre. These scenarios last 10 seconds of simulated time, and after the ten seconds, a fitness for that scenario is calculated, which incentivises three different steps: touch the ball, push the ball to the target, run away from the target. You can see more about how this fitness function works in the code.
 
