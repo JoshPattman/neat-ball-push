@@ -1,7 +1,7 @@
 module goevo-fun
 
 require (
-	github.com/JoshPattman/goevo v0.1.1
+	github.com/JoshPattman/goevo v0.1.2
 	github.com/faiface/pixel v0.10.0
 	golang.org/x/image v0.0.0-20190523035834-f03afa92d3ff
 )
@@ -15,6 +15,6 @@ require (
 	github.com/pkg/errors v0.8.1 // indirect
 )
 
-replace github.com/JoshPattman/goevo => ../goevo
+//replace github.com/JoshPattman/goevo => ../goevo
 
 go 1.18
