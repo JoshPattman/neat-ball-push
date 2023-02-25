@@ -1,4 +1,4 @@
-# Teaching an agent to push a ball to a target with the NEAT algorithm
+# Teaching an Agent to Push a Ball to a Target with the NEAT Algorithm
 ## Results
 Below are some results of training. In both scenarios, there are situations where the agents fails to push the ball to the center on the first try, then gets confused and pushes the ball off-screen. I think this is probably due to my fitness function not penalising failiurs enough. In the future I may add a term which gives a penalty if the ball is found outside a certain range. <br><br>
 In the below experiments, red and blue synapses are forward facing synapses, and yellow and green synapses are recurrent (backward facing) synapses.
