@@ -1,20 +1,30 @@
 # Teaching an agent to push a ball to a target with the NEAT algorithm
-## How the robot is trained
-The robot uses a NEAT network as its brain. The network can include recurrent (backwards) connections, which allow it to have a primitive type of memory. These are depicted as green and yellow lines in the picture, whereas normal connections are blue and red. <br><br>
-This is a video of a complex network:
+## Results
+Below are some results of training. In both scenarios, there are situations where the agents fails to push the ball to the center on the first try, then gets confused and pushes the ball off-screen. I think this is probably due to my fitness function not penalising failiurs enough. In the future I may add a term which gives a penalty if the ball is found outside a certain range. <br><br>
+In the below experiments, red and blue synapses are forward facing synapses, and yellow and green synapses are recurrent (backward facing) synapses.
 
-[complex_video.webm](https://user-images.githubusercontent.com/20802404/221260306-f33bb2da-6c8a-494d-9a3d-e86766fab2ea.webm)
+### Simple Network
+This network was trained with a relatively high penalty for having too many synapses. For this reason, it seems to have found the optimal solution has no hidden nodes. However, the network still performs relatively well.
 
-<br><br>
-And this is a video of a more simple network:
+![](videos/net.gif)
 
-[simple_vid.webm](https://user-images.githubusercontent.com/20802404/221260316-50ceb11b-c16c-42c9-ab29-13ffdd4b9e09.webm)
+### More Complex Network
+This network was trained with a lower penalty for having too many synapses. It has developed a hidden node (which has a ReLU activation), and also more synapses than the simple network. It seems to perform slightly better.
 
-<br>
+![](videos/net_complex.gif)
 
-Each generation, I simulate each robot on 5 differnt scenarios, where each scenario the robot and target start at a random position. The robot will always start the same distance from the target and the target will be the same distance from the centre. These scenarios last 10 seconds of simulated time, and after the ten seconds, a fitness for that scenario is calculated, which incentivises three different steps: touch the ball, push the ball to the target, run away from the target. You can see more about how this fitness function works in the code.
+### Very Complex Network
+This network had no penalty for having extra synapses, allowing it to grow more complex than the previous two tests. It seems to get confused a lot less than the previous two, and I noticed that in the situations where it did miss the target, it usually was able to try again as opposed to pushing the ball off-screen. <br><br>
+Interestingly, despite the fact that there is no direct synapse penalty, the network is still not dense (every node connects to every other node). I think this might be a combination of the fact that a dense network will have lots of output noise (causing the agent to be shaky and not perform well), and the fact that the mutation function has the possibility of pruning synapses, allowing unnecessary synapses and neurons to be removed.
 
-The inputs to the network are the normalised x and y distance to the ball from the robot, the normalised x and y distance to the centre from the robot, an indicator whether the ball has reached the target or not, and a bias value that is always 1. I use linear activations on input nodes, tanh on output nodes, and a variation of ReLU for hidden nodes, which has equation `ln(x+1)` when `x>0`. I found this prevents the recurrent connections creating very large value in the network.
+![](videos/net_very_complex.gif)
+
+## How the agent is trained
+The agent uses a NEAT network as its brain. The network can include recurrent (backwards) synapses, which allow it to have a primitive type of memory.
+
+Each generation, I simulate each agent on 10 differnt scenarios, where each scenario the agent and target start at a random position. The agent will always start the same distance from the target and the target will be the same distance from the centre. These scenarios last 10 seconds of simulated time, and after the ten seconds, a fitness for that scenario is calculated, which incentivises three different steps (in order): touch the ball, push the ball to the target, run away from the target. You can see more about how this fitness function works in `sim.go:48`.
+
+The inputs to the network are the normalised x and y distance to the ball from the agent, the normalised x and y distance to the centre from the agent, an indicator whether the ball has reached the target or not, and a bias value that is always 1. I use linear activations on input nodes, tanh on output nodes, and ReLU on hidden nodes.
 
 ## Run the code yourself
-I have only ever tested this on linux, but it should run on other OSs. To run a new training run `go run . -n <name>`, which generates the networks to `nets/<name>`. To run a previously trained network run `go run . -n <name> -s`, which will load the named network and run a window. To reset the state whilst in the window press _s_.
+I have only ever tested this on linux, but it should run on other OSs. To run a new training run `go run . -n <name>`, which generates the networks to `nets/<name>`. To run a previously trained network run `go run . -n <name> -s`, which will load the named network and run a window. To reset the state whilst in the window press _r_.
